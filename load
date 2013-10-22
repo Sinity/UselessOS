@@ -1,0 +1,23 @@
+
+#!/usr/bin/bash
+
+mkdir build/disc
+
+#make bootloader
+dd if=build/bootsector.bin of=build/bootloader.bin bs=1 skip=62
+dd if=build/secondStage.bin of=build/bootloader.bin  bs=1 seek=450
+
+#load bootloader
+dd if=build/bootloader.bin of=build/disc.img bs=1 conv=notrunc seek=62
+
+#load kernel
+mount build/disc.img build/disc
+cp build/KRNL.SYS build/disc
+
+
+#cleanup
+sleep 0.2
+umount build/disc
+rm -rf build/disc
+rm build/bootsector.bin build/secondStage.bin
+

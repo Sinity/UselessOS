@@ -1,0 +1,24 @@
+First stage bootloader:
+	Loaded by BIOS at 0x7C00. Prints some strings thorugh BIOS interrupts.
+	Loads second stage bootloader from second sector to 0x1000 thorugh 0x13 interrupt and jumps to it. 
+
+	Postconditions:
+		- Zeroed segment registers and direction flag
+		- Setted stack on 0x900. Aviable size = 0x400 bytes.
+	
+	Warning: It has exactly 512 bytes. If someone copy it to disc it will destroy partition table.
+
+
+Second stage bootloader:
+	Loaded by first stage bootloader at 0x1000. Prints string that indicates we're here, then installs GDT and enables A20 adress line. Loads kernel image to 0x3000. Prints error if cannot find kernel image.
+	Switches processor into protected mode, then fixes segment registers and sets stack to 0x90000. Finally, copies kernel to 0x100000(1MB) and executes it. 
+
+	Postconditions:
+		-Processor is in protected mode
+		-GDT table (located before second stage code) is loaded.
+		-A20 line enabled
+		-Kernel is loaded at 0x100000 and being executed
+
+
+Kernel:
+	Just halts processor.

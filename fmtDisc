@@ -1,0 +1,4 @@
+#!/usr/bin/bash
+
+mkdosfs build/disc.img -D 0x80 -F 16 -R 32 -s 16 -v -n UselessOS
+
