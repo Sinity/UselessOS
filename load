@@ -16,7 +16,7 @@ cp build/KRNL.SYS build/disc
 
 
 #cleanup
-sleep 0.2
+sleep 0.5
 umount build/disc
 rm -rf build/disc
 rm build/bootsector.bin build/secondStage.bin

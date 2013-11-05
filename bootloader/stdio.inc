@@ -16,7 +16,7 @@ attribute db WHITE_ON_BLACK_ATTRIB
 ;	esi<--pointer to 0-terminated string   |
 ;==========================================. 
 puts32:
-	pusha
+	pushad
 	xor bx, bx
 .loop:
 	mov bl, [esi] ; bl == current letter
@@ -31,13 +31,14 @@ puts32:
 	mov bh, [cursorY]
 	call moveCursor
 
-	popa
+	popad
 	ret
 
 ;========================
 ;  cls - clears screen	|
 ;========================
 cls:
+	pushad
 	mov ecx, COLS*ROWS*2 ; 2 bytes per character
 	mov bl, [attribute]
 .loopcls:
@@ -50,6 +51,7 @@ cls:
 	mov bx, 0
 	call moveCursor
 
+	popad
 	ret
 
 ;====================================
@@ -69,7 +71,7 @@ changeAttribute:
 %define CRT_INDEX  0x03D4
 %define CRT_DATA 0x03D5
 moveCursor: 
-	pusha
+	pushad
 	xor edx, edx 
 
 	mov [cursorY], bh 
@@ -103,7 +105,7 @@ moveCursor:
 	mov	dx, CRT_DATA		
 	out	dx, al		
 
-	popa
+	popad
 	ret
 
 ;============================================

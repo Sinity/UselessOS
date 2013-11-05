@@ -1,23 +1,23 @@
 [bits 16]
 
-%define bsOemName   bp+0x03    ; OEM label (8)
-%define bsBytesPerSec   bp+0x0B    ; bytes/sector (dw)
+%define bsOemName   bp+0x03         ; OEM label (dq)
+%define bsBytesPerSec   bp+0x0B     ; bytes/sector (dw)
 %define bsSecsPerClust   bp+0x0D    ; sectors/allocation unit (db)
-%define bsResSectors   bp+0x0E    ; # reserved sectors (dw)
-%define bsFATs      bp+0x10    ; # of fats (db)
-%define bsRootDirEnts   bp+0x11    ; Max # of root dir entries (dw)
-%define bsSectors   bp+0x13    ; # sectors total in image (dw)
-%define bsMedia    bp+0x15    ; media descriptor (db)
-%define bsSecsPerFat   bp+0x16    ; # sectors in a fat (dw)
+%define bsResSectors   bp+0x0E      ; # reserved sectors (dw)
+%define bsFATs      bp+0x10         ; # of FATs (db)
+%define bsRootDirEnts   bp+0x11     ; Max # of root dir entries (dw)
+%define bsSectors   bp+0x13         ; # sectors total in image (dw)
+%define bsMedia    bp+0x15          ; media descriptor (db)
+%define bsSecsPerFat   bp+0x16      ; # sectors in a fat (dw)
 %define bsSecsPerTrack   bp+0x18    ; # sectors/track
-%define bsHeads      bp+0x1A    ; # heads (dw)
-%define bsHidden    bp+0x1C    ; # hidden sectors (dd)
-%define bsSectorHuge   bp+0x20    ; # sectors if > 65536 (dd)
-%define bsDriveNumber   bp+0x24    ; (dw)
-%define bsSigniture   bp+0x26    ; (db)
-%define bsVolumeSerial   bp+0x27    ; (dd)
-%define bsVolumeLabel   bp+0x2B    ; (11)
-%define bsSysID      bp+0x36    ; (8)
+%define bsHeads      bp+0x1A        ; # heads (dw)
+%define bsHidden    bp+0x1C         ; # hidden sectors (dd)
+%define bsSectorHuge   bp+0x20      ; # sectors if > 65536 (dd)
+%define bsDriveNumber   bp+0x24     ; drive number, 0x80 of 0x81 for HDD(dw)
+%define bsSigniture   bp+0x26       ; reserved (db)
+%define bsVolumeSerial   bp+0x27    ; used for tracking volume between computers(dd)
+%define bsVolumeLabel   bp+0x2B     ; disc label, padded with spaces(11)
+%define bsSysID      bp+0x36        ; filesystem id(8)
 
 ;******************************************
 ;si -> filename ptr
@@ -27,83 +27,86 @@
 ;eax <- size of file in bytes
 ;******************************************
 loadFile:
-	pusha
-	mov [filename], si
+  pusha
+  mov [filename], si
 	mov [destination], di
-
+  
 	;rootstart = bsResSectors + (bsFATs * bsSecsPerFat)
-    movzx eax, word [bsSecsPerFat]
+  movzx eax, word [bsSecsPerFat]
 	movzx ebx, byte [bsFATs]
 	mul bx
-    add ax, [bsResSectors]
-    mov [rootstart], ax
+  add ax, [bsResSectors]
+  mov [rootstart], ax
 
 	;datastart = rootstart + ((bsRootDirEnts * 32) / bsBytesPerSec) 
-    mov ax, [bsRootDirEnts]
-    shl ax, 5
+  mov ax, [bsRootDirEnts]
+  shl ax, 5
 	mov bx, [bsBytesPerSec]
 	mov dx, 0
 	div bx
-    add ax, [rootstart]   
-    mov [datastart], ax
+  add ax, [rootstart]   
+  mov [datastart], ax
    
 
-.next_sector:
-   mov ax, [rootstart]
-   mov bx, [destination]
-   mov si, bx
-   mov di, bx
-   call readsector
+  xor edx, edx
+  movzx eax, word [rootstart]
 
-;load entry from root table
-.next_entry:
-	;check filename
+.next_sector:
+  movzx eax, word [rootstart]
+  add eax, edx
+  mov bx, [destination]
+  mov si, bx
+  mov di, bx
+  call readsector
+
+  ;load entry from root table
+  .next_entry:
+	  ;check filename
     mov cx, 11
     mov si, [filename]
     repe cmpsb
     jz .found      
 
-	;di == dir entity+11
+	  ;di == dir entry +11
 
-	;check if end of sector
+	  ;check if end of sector
     add di, 0x20
     and di, -0x20
     cmp di, [bsBytesPerSec]
     jnz .next_entry
 
-	;read next sector
-    dec dx        
+	  ;read next sector
+    inc edx
     jnz .next_sector
 
 .found:
-    add di, 15
-    mov ax, [di]   ;ax now holds the starting cluster
-    mov bx, [destination] 
-	xor ecx, ecx
+  add di, 15
+  mov ax, [di]   ;ax now holds the starting cluster
 
-.next_cluster: 
-	call readcluster
-	inc ecx
-    cmp ax, 0xFFF8 ; Have we reached the eof?
-    jg .next_cluster 
+  ;store file size
+  movzx edx, di
+  add edx, 2
+  mov edx, [edx]
+  mov [fileSize], edx
 
-	movzx eax, byte [bsSecsPerClust]
-	mul ecx ;ax holds file size in sectors
-	movzx ebx, word [bsBytesPerSec]
-	mul ebx ;ax holds file size in bytes
-	mov [fileSize], eax
+  mov bx, [destination] 
+  xor ecx, ecx
+
+  .next_cluster: 
+	  call readcluster
+	  inc ecx
+    cmp ax, 0xFFF7 ; Have we reached the eof or bad cluster?
+    jb .next_cluster 
 
 	popa
 	mov eax, [fileSize]
 	ret
 
-
-fileSize dd 0x0000
+fileSize 	dd 0x0000
 destination dw 0x0000
-filename dw 0
-datastart dw 0x0000
-rootstart dw 0x0000
-
+filename 	dw 0x0000
+datastart	dw 0x0000
+rootstart 	dw 0x0000
 
 ;------------------------------------------------------------------------------
 ; Read a sector from disk, using LBA
@@ -170,21 +173,23 @@ no_incr_es:
 ;      AX - next cluster
 readcluster:
    push cx
-   mov [tcluster], ax
+   mov [tmpcluster], ax
+
+   ;calculate starting sector of cluster
    xor cx, cx
    sub ax, 2
-   mov cl, byte [bsSecsPerClust]
-   imul cx      ; EAX now holds starting sector
+   mov cl, [bsSecsPerClust]
+   imul cx  
    add ax, word [datastart] 
 
    xor cx, cx
    mov cl, byte [bsSecsPerClust]
 
-readcluster_nextsector:
+  .nextsector:
    call readsector
    dec cx
    cmp cx, 0
-   jne readcluster_nextsector
+   jne .nextsector
 
    push bx 
    mov bx, 0x7E00  
@@ -192,7 +197,7 @@ readcluster_nextsector:
    mov ax, [bsResSectors]
    call readsector
    pop bx  
-   mov ax, [tcluster] ; ax holds the cluster # we just read
+   mov ax, [tmpcluster] ; ax holds the cluster # we just read
    shl ax, 1   
    add bx, ax
    mov ax, [bx]
@@ -202,5 +207,5 @@ readcluster_nextsector:
    
    ret
 ;------------------------------------------------------------------------------
-tcluster dw 0x0000
+tmpcluster dw 0x0000
 

@@ -25,16 +25,6 @@ nop
 
 times 0x3B db 0 ; skip bpb
 
-msgGreet	db 'First stage bootloader version 2.67 welcomes you, master.', 13, 10, 0
-%include "bootloader/rm_stdio.inc"
-
-read_pocket:
-	db	0x10	; size of pocket
-	db	0		; const 0
-	dw	4		; number of sectors to transfer
-	dw	0x1000, 0x0000	; address to write (segment:offset but because its little endian its offset, segment)
-	dq	1		; sector to read
-
 start:					
 	;----------------------------------------------------
 	; SETUP SEGMENT REGISTERS, STACK and direction flag  |
@@ -77,6 +67,19 @@ start:
 	;----------------------------------------------------
 	mov ax, 0x1000
 	jmp ax
+
+;*******************************************************************************************
+msgGreet	db 'First stage bootloader version 2.67 welcomes you, master.', 13, 10, 0
+%include "bootloader/rm_stdio.inc"
+
+read_pocket:
+	db	0x10	; size of pocket
+	db	0		; const 0
+	dw	4		; number of sectors to transfer
+	dw	0x1000, 0x0000	; address to write (segment:offset but because its little endian its offset, segment)
+	dq	1		; sector to read
+
+;********************************************************************************************
 
 ;fill rest of bootsector with zeroes
 times (510-($-$$)) db 0 ; $ is current line adress, $$ is adress of first line.
