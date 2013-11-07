@@ -100,7 +100,7 @@ LoadElf:
 	;calculate adress of next program header
 	movzx eax, word [ebp + EhdrPHSize]
 	add ebx, eax
-	
+
 	inc cx
 	cmp cx, word [ebp + EhdrPHNum]
 	jne .phdrLoop
@@ -110,7 +110,7 @@ LoadElf:
 	;-------
 
 	mov ebx, [ebp + EhdrSHptr]
-	add ebx, ebp ; ebx == shdr* 
+	add ebx, ebp 
 	xor ecx, ecx
 .ShdrLoop:
 	cmp dword [ebx + ShdrType], SHT_DYNSYM

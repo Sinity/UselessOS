@@ -13,7 +13,6 @@ SECTIONS
 	.rodata BLOCK(4K) : ALIGN(4K)
 	{
 		*(.rodata)
-		*(.rodata.str1.1)
 	}
 
 	/* Read-write data (initialized) */
