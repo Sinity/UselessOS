@@ -1,8 +1,20 @@
+/* strings/chars */
 void kputc(char c); /* put char on screen */
 void kputs(const char* str); /* put zero-terminated string on screen */
+void scrollUp(void); /*moves each character on the screen up. Destroys first line. */
 
+/* attributes */
 void setColor(char color); /* sets color mode of next characters */
+void enableBlinking();
+void disableBlinking(); 
+
+/* cursor position */
+void setCursor(unsigned int x, unsigned int y); /* sets cursor to given coordinates */ 
 void resetCursor(void); /* sets cursor to top-right corner of screen */ 
+
+/* screen size */
+#define SCREEN_HEIGHT 25
+#define SCREEN_WIDTH 80
 
 /*color of characters on screen */
 typedef enum { 
