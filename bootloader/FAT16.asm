@@ -27,80 +27,64 @@
 ;eax <- size of file in bytes
 ;******************************************
 loadFile:
-  pusha
-  mov [filename], si
-	mov [destination], di
+    pusha
+    mov [filename], si
+    mov [destination], di
   
-	;rootstart = bsResSectors + (bsFATs * bsSecsPerFat)
-  movzx eax, word [bsSecsPerFat]
-	movzx ebx, byte [bsFATs]
-	mul bx
-  add ax, [bsResSectors]
-  mov [rootstart], ax
+    ;rootstart = bsResSectors + (bsFATs * bsSecsPerFat)
+    mov ax, [bsSecsPerFat]
+    movzx bx, byte [bsFATs]
+    mul bx
+    add ax, [bsResSectors]
+    mov [rootstart], ax
 
-	;datastart = rootstart + ((bsRootDirEnts * 32) / bsBytesPerSec) 
-  mov ax, [bsRootDirEnts]
-  shl ax, 5
-	mov bx, [bsBytesPerSec]
-	mov dx, 0
-	div bx
-  add ax, [rootstart]   
-  mov [datastart], ax
+    ;datastart = rootstart + ((bsRootDirEnts * 32) / bsBytesPerSec) 
+    mov ax, [bsRootDirEnts]
+    shl ax, 5
+    mov bx, [bsBytesPerSec]
+    mov dx, 0
+    div bx
+    add ax, [rootstart]   
+    mov [datastart], ax
    
+    movzx eax, word [rootstart]
+    .next_sector:
+        mov bx, [destination]
+        mov di, bx
+        call readsector
 
-  xor edx, edx
-  movzx eax, word [rootstart]
+        .next_entry:
+            ;check filename
+            mov cx, 11
+            mov si, [filename]
+            repe cmpsb
+            jz .found      
 
-.next_sector:
-  movzx eax, word [rootstart]
-  add eax, edx
-  mov bx, [destination]
-  mov si, bx
-  mov di, bx
-  call readsector
-
-  ;load entry from root table
-  .next_entry:
-	  ;check filename
-    mov cx, 11
-    mov si, [filename]
-    repe cmpsb
-    jz .found      
-
-	  ;di == dir entry +11
-
-	  ;check if end of sector
-    add di, 0x20
-    and di, -0x20
-    cmp di, [bsBytesPerSec]
-    jnz .next_entry
-
-	  ;read next sector
-    inc edx
-    jnz .next_sector
+            ;check if end of sector (di == dir entry +11 now)
+            add di, 0x20
+            and di, -0x20
+            cmp di, [bsBytesPerSec]
+            jnz .next_entry
+        jnz .next_sector
 
 .found:
-  add di, 15
-  mov ax, [di]   ;ax now holds the starting cluster
+    add di, 0xF
+    mov ax, [di]   ;ax <- starting cluster
 
-  ;store file size
-  movzx edx, di
-  add edx, 2
-  mov edx, [edx]
-  mov [fileSize], edx
+    ;store file size
+    add di, 2
+    mov edx, [di]
+    mov [fileSize], edx
 
-  mov bx, [destination] 
-  xor ecx, ecx
+    mov bx, [destination] 
+    .next_cluster: 
+        call readcluster 
+        cmp ax, 0xFFF7 ; eof/badcluster
+        jb .next_cluster 
 
-  .next_cluster: 
-	  call readcluster
-	  inc ecx
-    cmp ax, 0xFFF7 ; Have we reached the eof or bad cluster?
-    jb .next_cluster 
-
-	popa
-	mov eax, [fileSize]
-	ret
+    popa
+    mov eax, [fileSize]
+    ret
 
 fileSize 	dd 0x0000
 destination dw 0x0000
@@ -109,103 +93,106 @@ datastart	dw 0x0000
 rootstart 	dw 0x0000
 
 ;------------------------------------------------------------------------------
-; Read a sector from disk, using LBA
-; input:   EAX - 32-bit DOS sector number
-;      ES:BX - destination buffer
-; output:   ES:BX points one byte after the last byte read
-;      EAX - next sector
+; Read one sector from disk
+;   eax -> 32-bit DOS sector number
+;   es:bx -> destination
+; 
+;   es:bx  <- one byte after the last byte read
+;   eax  <- next sector
 readsector:
-   push dx
-   push si
-   push di
+    push dx
+    push si
+    push di
 
-read_it:
-   push eax   ; Save the sector number
-   mov di, sp   ; remember parameter block end
+.readSegment:
+    push eax   ; Save the sector number
 
-   push byte 0   ; other half of the 32 bits at [C]
-   push byte 0   ; [C] sector number high 32bit
-   push eax   ; [8] sector number low 32bit
-   push es    ; [6] buffer segment
-   push bx    ; [4] buffer offset
-   push byte 1   ; [2] 1 sector (word)
-   push byte 16   ; [0] size of parameter block (word)
+    mov [pbBufferOff], bx
+    mov [pbBufferSeg], es
+    mov [pbSectorLow], eax
 
-   mov si, sp
-   mov dl, [bsDriveNumber]
-   mov ah, 42h   ; LBA
-   int 0x13 
+    mov si, paramBlock
+    mov dl, [bsDriveNumber]
+    mov ah, 42h   ; LBA
+    int 0x13 
 
-   mov sp, di   ; remove parameter block from stack
-   pop eax      ; Restore the sector number
+    pop eax      ; Restore the sector number
+    jnc .readed    ; jump if no error
 
-   jnc read_ok    ; jump if no error
+    ;reset disk
+    push ax
+    xor ah, ah   
+    int 0x13
+    pop ax
 
-   push ax
-   xor ah, ah   ; else, reset and retry
-   int 0x13
-   pop ax
-   jmp read_it
+    jmp .readSegment ;try again
 
-read_ok:
-   inc eax       ; next sector
-   add bx, 512      ; Add bytes per sector
-   jnc no_incr_es      ; if overflow...
+.readed:
+    inc eax       ; next sector
+    add bx, word [bsBytesPerSec]   ; Add bytes per sector
+    jnc notOverflow   
 
-incr_es:
-   mov dx, es
-   add dh, 0x10      ; ...add 1000h to ES
-   mov es, dx
+    ;overflow
+    mov dx, es
+    add dh, 0x10      ;add 1000h to ES
+    mov es, dx
 
-no_incr_es:
-   pop di
-   pop si
-   pop dx
-   ret
+notOverflow:
+    pop di
+    pop si
+    pop dx
+    ret
+
+paramBlock:
+   pbSize db  0x10 
+   pbNull db  0x00     
+   pbNumSectors dw 1  
+   pbBufferOff dw  0x0000
+   pbBufferSeg dw  0x0000 
+   pbSectorLow dd  0x0000
+   pbSectorHigh dd 0x0000
 
 ;------------------------------------------------------------------------------
 
 ;------------------------------------------------------------------------------
-; Read a cluster from disk, using LBA
-; input:   AX - 16-bit cluster number
-;      ES:BX - destination buffer
-; output:   ES:BX points one byte after the last byte read
-;      AX - next cluster
+; Read a cluster from disk
+;   ax -> cluster number
+;   es:bx -> destination
+;   
+;   es:bx <- byte after the last byte read
+;   ax <- next cluster number
 readcluster:
-   push cx
-   mov [tmpcluster], ax
+    push cx
+    mov [currentCluster], ax
 
-   ;calculate starting sector of cluster
-   xor cx, cx
-   sub ax, 2
-   mov cl, [bsSecsPerClust]
-   imul cx  
-   add ax, word [datastart] 
+    ;calculate starting sector of cluster
+    xor cx, cx
+    sub ax, 2
+    mov cl, [bsSecsPerClust]
+    imul cx  
+    add ax, word [datastart] 
 
-   xor cx, cx
-   mov cl, byte [bsSecsPerClust]
+    mov cl, [bsSecsPerClust]
+    .nextsector:
+        call readsector
+        loop .nextsector
 
-  .nextsector:
-   call readsector
-   dec cx
-   cmp cx, 0
-   jne .nextsector
+    push bx 
 
-   push bx 
-   mov bx, 0x7E00  
-   push bx
-   mov ax, [bsResSectors]
-   call readsector
-   pop bx  
-   mov ax, [tmpcluster] ; ax holds the cluster # we just read
-   shl ax, 1   
-   add bx, ax
-   mov ax, [bx]
+    mov bx, 0x7E00  
+    push bx
+    mov ax, [bsResSectors]
+    call readsector
+    pop bx ;7E00  
+
+    mov ax, [currentCluster] ; ax holds the cluster # we just read
+    shl ax, 1   
+    add bx, ax
+    mov ax, [bx]
    
-   pop bx  
-   pop cx
-   
-   ret
+    pop bx  
+    pop cx
+    ret
 ;------------------------------------------------------------------------------
-tmpcluster dw 0x0000
+currentCluster dw 0x0000
 
