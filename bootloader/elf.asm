@@ -61,49 +61,49 @@ entryPointAddr: dd 0
 ;-----------------------------------------
 LoadElf:
 	pushad
-    mov [entryPoint], eax
+	mov [entryPoint], eax
 
-    mov ebx, [ebp + EhdrPHptr]
-    add ebx, ebp
+	mov ebx, [ebp + EhdrPHptr]
+	add ebx, ebp
 
-    xor ecx, ecx ;current program header index
-.phdrLoop:
-	;this section should be loaded?
-	cmp dword [ebx + PhdrType], PH_LOAD
-	jne .nextPH
-	cmp dword [ebx + PhdrFileSize], 0
-	je .nextPH
+	xor ecx, ecx ;current program header index
+	.phdrLoop:
+		;this section should be loaded?
+		cmp dword [ebx + PhdrType], PH_LOAD
+		jne .nextPH
+		cmp dword [ebx + PhdrFileSize], 0
+		je .nextPH
 
-	;yes, load it
-	mov esi, [ebx + PhdrFileOffset]
-	add esi, ebp ; esi == file ptr + section offset == section to copy
-	mov edi, [ebx + PhdrVAddr] ; edi == section destination
-	push ecx
-	mov ecx, [ebx + PhdrFileSize]
-	rep movsb
-	pop ecx
+		;yes, load it
+		mov esi, [ebx + PhdrFileOffset]
+		add esi, ebp ; esi == file ptr + section offset == section to copy
+		mov edi, [ebx + PhdrVAddr] ; edi == section destination
+		push ecx
+		mov ecx, [ebx + PhdrFileSize]
+		rep movsb
+		pop ecx
 
-	;need fill memory with zeroes?
-	mov eax, [ebx + PhdrMemSize]
-	sub eax, [ebx + PhdrFileSize]
-	jng .nextPH
+		;need fill memory with zeroes?
+		mov eax, [ebx + PhdrMemSize]
+		sub eax, [ebx + PhdrFileSize]
+		jng .nextPH
 
-	;yes, fill it
-.fillZeroes:
-	mov byte [edi], 0
-	inc edi
-	dec eax
-	cmp eax, 0
-	je .fillZeroes
+		;yes, fill it
+		.fillZeroes:
+			mov byte [edi], 0
+			inc edi
+			dec eax
+			cmp eax, 0
+			je .fillZeroes
 
-.nextPH:
-	;calculate adress of next program header
-	movzx eax, word [ebp + EhdrPHSize]
-	add ebx, eax
+	.nextPH:
+		;calculate adress of next program header
+		movzx eax, word [ebp + EhdrPHSize]
+		add ebx, eax
 
-	inc cx
-	cmp cx, word [ebp + EhdrPHNum]
-	jne .phdrLoop
+		inc cx
+		cmp cx, word [ebp + EhdrPHNum]
+		jne .phdrLoop
 
 	;-------
 	; Find entry point
@@ -112,61 +112,61 @@ LoadElf:
 	mov ebx, [ebp + EhdrSHptr]
 	add ebx, ebp 
 	xor ecx, ecx
-.ShdrLoop:
-	cmp dword [ebx + ShdrType], SHT_DYNSYM
-	je .segFound
-	cmp dword [ebx + ShdrType], SHT_SYMTAB
-	jne .nextShdr
+	.ShdrLoop:
+		cmp dword [ebx + ShdrType], SHT_DYNSYM
+		je .segFound
+		cmp dword [ebx + ShdrType], SHT_SYMTAB
+		jne .nextShdr
 
-.segFound:
-	;edx -> string table
-	mov eax, [ebx + ShdrLink]
-	movzx edx, word [ebp + EhdrSHSize]
-	mul edx ; eax -> offset from begenning of section headers table
-	mov edx, [ebp + EhdrSHptr]
-	add edx, eax
-	add edx, ebp
-	mov edx, [edx + ShdrFileOff]
-	add edx, ebp
+	.segFound:
+		;edx -> string table
+		mov eax, [ebx + ShdrLink]
+		movzx edx, word [ebp + EhdrSHSize]
+		mul edx ; eax -> offset from begenning of section headers table
+		mov edx, [ebp + EhdrSHptr]
+		add edx, eax
+		add edx, ebp
+		mov edx, [edx + ShdrFileOff]
+		add edx, ebp
 
-	;eax -> symbol table
-	mov eax, [ebx + ShdrFileOff]
-	add eax, ebp
+		;eax -> symbol table
+		mov eax, [ebx + ShdrFileOff]
+		add eax, ebp
 
-	push ecx
-	xor ecx, ecx
-.nextEntry:
-	mov esi, [entryPoint]
-	mov edi, edx
-	add edi, [eax + SymtabName]
-	push eax
-	call strcmp
-	mov esi, eax ;esi <= result of comparision
-	pop eax
+		push ecx
+		xor ecx, ecx
+	.nextEntry:
+		mov esi, [entryPoint]
+		mov edi, edx
+		add edi, [eax + SymtabName]
+		push eax
+		call strcmp
+		mov esi, eax ;esi <= result of comparision
+		pop eax
 
-	cmp esi, 0
-	je .entryFound
+		cmp esi, 0
+		je .entryFound
 
-	add ecx, [ebx + ShdrEntSize]
-	add eax, [ebx + ShdrEntSize]
-	cmp ecx, [ebx + ShdrSize]
-	jb .nextEntry
+		add ecx, [ebx + ShdrEntSize]
+		add eax, [ebx + ShdrEntSize]
+		cmp ecx, [ebx + ShdrSize]
+		jb .nextEntry
 
-.entryFound:
-	pop ecx
-	mov eax, [eax + SymtabValue] 
-	mov [entryPointAddr], eax
-	jmp .end
+	.entryFound:
+		pop ecx
+		mov eax, [eax + SymtabValue] 
+		mov [entryPointAddr], eax
+		jmp .end
 
-.nextShdr:
-	;ebx == next section header
-	movzx eax, word [ebp + EhdrSHSize]
-	add ebx, eax
+	.nextShdr:
+		;ebx == next section header
+		movzx eax, word [ebp + EhdrSHSize]
+		add ebx, eax
 
-	;more section headers exist?
-	inc cx
-	cmp cx, [ebp + EhdrSHNum]
-	jne .ShdrLoop
+		;more section headers exist?
+		inc cx
+		cmp cx, [ebp + EhdrSHNum]
+		jne .ShdrLoop
 
 .end:
 	popad
@@ -179,21 +179,20 @@ LoadElf:
 ;eax <- 0 if strings are equal, 1 otherwise
 ;esi, edi <- first mismached char if not equal, otherwise 0-terminator
 strcmp:
+	.nextChar:
+		mov ah, [esi]
+		cmp ah, [edi]
+		jne .notEqual
+		cmp ah, 0
+		jz .equal
+		inc esi
+		inc edi
+		jmp .nextChar
 
-.nextChar:
-	mov ah, [esi]
-	cmp ah, [edi]
-	jne .notEqual
-	cmp ah, 0
-	jz .equal
-	inc esi
-	inc edi
-	jmp .nextChar
+	.equal:
+		mov eax, 0
+		ret
 
-.equal:
-	mov eax, 0
-	ret
-
-.notEqual:
-	mov eax, 1
-	ret
+	.notEqual:
+		mov eax, 1
+		ret
