@@ -1,7 +1,7 @@
-#include "io.h"
+#include "console_output.h"
 
 void kmain(void) {
-	setColor(FG_GREEN);
+	setFGColor(FG_GREEN);
 	kputs("UselessOS Kernel\n");
 
 	for(;;); //halt
