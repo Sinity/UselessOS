@@ -1,3 +1,6 @@
+#ifndef __CONSOLE_OUTPUT_H
+#define __CONSOLE_OUTPUT_H
+
 /* console output */
 void kputc(char c); /* put char on screen */
 void kputs(const char* str); /* put zero-terminated string on screen */
@@ -54,3 +57,5 @@ typedef enum {
 	BG_BROWN  = BG_GREEN + BG_RED,
 	BG_GRAY   = BG_BLUE + BG_GREEN + BG_RED 
 } BackgroundColor; 
+
+#endif
