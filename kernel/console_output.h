@@ -1,16 +1,27 @@
 #ifndef __CONSOLE_OUTPUT_H
 #define __CONSOLE_OUTPUT_H
 
-/* console output */
+#include <stdint.h>
+
+/* basic console output */
+void kSetChar(char c, int16_t x, int8_t y); /* puts character on screen in desired position. For linear offset give it to x and set y to 0*/ 
 void kputc(char c); /* put char on screen */
 void kputs(const char* str); /* put zero-terminated string on screen */
+void newLine(void); /* puts new line on screen */
 void scrollUp(void); /* moves each character to the upper line. Destroys first line. */
 void clearScreen(void); /* throws out all chars from screen and sets background color to current background color */
 
+/* output common data types */
+void kputint(int32_t integer);
+void kputuint(uint32_t integer);
+void kputhex(uint32_t integer);
+void kputptr(void* ptr);
+void kputbool(uint8_t boolean);
+
 /* attributes */
-void setColor(char color); /* sets color mode of next characters */
-void setBGColor(char color); /* sets background color of next characters */
-void setFGColor(char color); /* sets text color of next characters */
+void setColor(int8_t color); /* sets color mode of next characters */
+void setBGColor(int8_t color); /* sets background color of next characters */
+void setFGColor(int8_t color); /* sets text color of next characters */
 void enableBlinking(void);
 void disableBlinking(void);
 
@@ -19,7 +30,7 @@ void disableBlinking(void);
 #define defaultBGColor BG_BLACK
 
 /* cursor position */
-void setCursor(unsigned int x, unsigned int y); /* sets cursor to given coordinates */ 
+void setCursor(int8_t x, int8_t y); /* sets cursor to given coordinates */ 
 void resetCursor(void); /* sets cursor to top-right corner of screen */ 
 
 /* screen size */
