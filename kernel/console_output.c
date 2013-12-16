@@ -1,5 +1,6 @@
 #include "console_output.h"
 #include <size_t.h>
+#include <stdarg.h>
 
 struct VideoChar {
 	char ascii;
@@ -134,6 +135,56 @@ void enableBlinking(void) {
 
 void disableBlinking(void) {
 	blinking = 0;
+}
+
+
+
+
+
+void kput(const char* fmt, ...) {
+	va_list args;
+	va_start(args, fmt);
+
+	#define ESCAPE_CHAR '%'
+
+	for(int32_t i = 0; fmt[i] != '\0'; i++) {
+		if(fmt[i] == ESCAPE_CHAR) {
+			switch(fmt[++i]) {
+				case ESCAPE_CHAR:
+					kputc(ESCAPE_CHAR);
+					break;
+				case 'd':
+					kputint(va_arg(args, int32_t));
+					break;
+				case 'u':
+					kputuint(va_arg(args, uint32_t));
+					break;
+				case 'b':
+					kputbool(va_arg(args, uint8_t));
+					break;
+				case 'h':
+					kputhex(va_arg(args, uint32_t));
+					break;
+				case 'p':
+					kputptr(va_arg(args, void*));
+					break;
+				case 'c':
+					kputc(va_arg(args, char));
+					break;
+				case 's':
+					kputs(va_arg(args, const char*));
+					break;
+
+				default: 	//todo: better solution for this(panic?) 
+					kput("\n(KPUT ERROR: wrong character code: \"%c\")\n", fmt[i]);
+					break;
+			}
+		} else {
+			kputc(fmt[i]);
+		}
+	}
+
+	va_end(args);
 }
 
 

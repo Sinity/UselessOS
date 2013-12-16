@@ -7,6 +7,7 @@
 void kSetChar(char c, int16_t x, int8_t y); /* puts character on screen in desired position. For linear offset give it to x and set y to 0*/ 
 void kputc(char c); /* put char on screen */
 void kputs(const char* str); /* put zero-terminated string on screen */
+void kput(const char* fmt, ...); /* printf-like function */
 void newLine(void); /* puts new line on screen */
 void scrollUp(void); /* moves each character to the upper line. Destroys first line. */
 void clearScreen(void); /* throws out all chars from screen and sets background color to current background color */
