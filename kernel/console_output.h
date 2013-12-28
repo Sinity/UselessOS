@@ -31,12 +31,17 @@ void disableBlinking(void);
 #define defaultBGColor BG_BLACK
 
 /* cursor position */
-void setCursor(int8_t x, int8_t y); /* sets cursor to given coordinates */ 
+void setCursor(uint8_t x, uint8_t y); /* sets cursor to given coordinates */
+void moveCursor(int8_t x, int8_t y); /* moves cursor using offsets from parameters */
 void resetCursor(void); /* sets cursor to top-right corner of screen */ 
 
 /* screen size */
 #define SCREEN_HEIGHT 25
 #define SCREEN_WIDTH 80
+
+/* special coordinates */
+#define CENTER_X 40
+#define CENTER_Y 12
 
 /*color of characters on screen */
 typedef enum { 

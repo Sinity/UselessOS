@@ -11,13 +11,13 @@ struct VideoChar {
 static struct VideoChar* screen = VIDEOMEM_PTR;
 
 static struct {
-	int8_t x;
-	int8_t y;
+    uint8_t x;
+    uint8_t y;
 } cursor = {0, 0};
 
 static BackgroundColor bgColor = defaultBGColor;
 static ForegroundColor fgColor = defaultFGColor;
-int8_t blinking = 0; 
+int8_t blinking = 0;
 
 
 
@@ -107,9 +107,14 @@ void resetCursor(void) {
 	cursor.y = 0;
 }
 
-void setCursor(int8_t x, int8_t y) {
+void setCursor(uint8_t x, uint8_t y) {
 	cursor.x = x;
 	cursor.y = y;
+}
+
+void moveCursor(int8_t x, int8_t y) {
+    cursor.x += x;
+    cursor.y += y;
 }
 
 
